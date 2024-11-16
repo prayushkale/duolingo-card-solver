@@ -4,7 +4,7 @@ import pytesseract
 import pyautogui
 from PIL import Image
 from PIL import ImageGrab
-from time import sleep
+from concurrent.futures import ProcessPoolExecutor
 
 # Eng to Jpn dictionary
 eng_to_jpn = {
@@ -82,7 +82,7 @@ right_row = {
 
 capture_count = 1
 
-for row_idx in range(5):
+def extract_data_per_row(row_idx):
     # Capture the screenshot of the rectangle
     left_row_screenshot = ImageGrab.grab((A[row_idx][0], A[row_idx][1], A[row_idx][2], A[row_idx][3]))
     right_row_screenshot = ImageGrab.grab((B[row_idx][0], B[row_idx][1], B[row_idx][2], B[row_idx][3]))
@@ -116,8 +116,8 @@ for row_idx in range(5):
     os.remove(right_row_filename)
 
     # show the output images
-    cv2.imshow("Left Output In Grayscale", left_row_image_gray)
-    cv2.imshow("Right Output In Grayscale", right_row_image_gray)
+    # cv2.imshow("Left Output In Grayscale", left_row_image_gray)
+    # cv2.imshow("Right Output In Grayscale", right_row_image_gray)
 
     # add each word to the left_row and right_row dictionary
     left_row[row_idx] = left_row_text.strip().replace('\n', '').replace(' ', '').lower()
@@ -125,33 +125,43 @@ for row_idx in range(5):
 
     print(f"Row {row_idx}: {left_row[row_idx]}, {right_row[row_idx]}")
 
+    return left_row[row_idx], right_row[row_idx]
+
     # wait 3 seconds
     # cv2.waitKey(3000)
     # close the window
-    cv2.destroyAllWindows()
+    # cv2.destroyAllWindows()
 
-print(left_row)
-print(right_row)
+if __name__ == '__main__':
 
-# find the matching words and click the corresponding left and then right box
-for row_idx in range(5):
-    if left_row[row_idx] in eng_to_jpn:
-        # find index of the matching word in right_row 
-        try:
-            right_row_match = find_best_match(right_row, eng_to_jpn[left_row[row_idx]], 0.5)
-            if right_row_match:
-                match_idx = right_row_match[0]
+    with ProcessPoolExecutor() as executor:
+        results = executor.map(extract_data_per_row, range(5))
 
-                # click the corresponding left and right boxes
-                pyautogui.click(click_A[row_idx]['x'], click_A[row_idx]['y'])
-                pyautogui.click(click_B[match_idx]['x'], click_B[match_idx]['y'])
+    for row_idx, result in enumerate(results):
+        left_row[row_idx], right_row[row_idx] = result
 
-                print(f"Row {row_idx}: {left_row[row_idx]} is matched with {right_row[match_idx]}")
-                                
-                # set right_row[match_idx] to '' to avoid matching again
-                right_row[match_idx] = ''
-        
-        except ValueError:
-            pass
+    print(left_row)
+    print(right_row)
+
+    # find the matching words and click the corresponding left and then right box
+    for row_idx in range(5):
+        if left_row[row_idx] in eng_to_jpn:
+            # find index of the matching word in right_row 
+            try:
+                right_row_match = find_best_match(right_row, eng_to_jpn[left_row[row_idx]], 0.5)
+                if right_row_match:
+                    match_idx = right_row_match[0]
+
+                    # click the corresponding left and right boxes
+                    pyautogui.click(click_A[row_idx]['x'], click_A[row_idx]['y'])
+                    pyautogui.click(click_B[match_idx]['x'], click_B[match_idx]['y'])
+
+                    print(f"Row {row_idx}: {left_row[row_idx]} is matched with {right_row[match_idx]}")
+                                    
+                    # set right_row[match_idx] to '' to avoid matching again
+                    right_row[match_idx] = ''
+            
+            except ValueError:
+                pass
 
 

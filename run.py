@@ -1,10 +1,13 @@
 import cv2
-import os, re
+import os, re, time
 import pytesseract
 import pyautogui
+import keyboard
 from PIL import Image
 from PIL import ImageGrab
 from concurrent.futures import ProcessPoolExecutor
+
+pyautogui.FAILSAFE = False
 
 # Eng to Jpn dictionary
 eng_to_jpn = {
@@ -15,40 +18,179 @@ eng_to_jpn = {
     'ten': 'juu',
     'busy': 'isogashii',
     'sandwich': 'sandoichi',
+    'pizza': 'piza',
+    'please': 'kudasai',
+    'cake': 'keeki',
+    'water': 'mizu',
+    'karate': 'karate',
+    'clothes': 'fuku',
+    'abit': 'sukoshi',
+    'eight': 'hachi',
+    'ticket': 'kippu',
+    'lively': 'nigiyaka',
+    'subway': 'chikatetsu',
+    'bag': 'kaban',
+    'passport': 'pasupooto',
+    'platform': 'hoomu',
+    'jacket': 'jaketto',
+    'small': 'chiisai',
+    'thirty': 'han',
+    'baseball': 'youkoso',
+    'four': 'yon',
+    "o'clock": 'ji',
+    'noisy': 'urusai',
+    'welcome': 'youkoso',
+    'baseball': 'yakyuu',
+    'bye': 'jaane',
+    'yes': 'hai',
+    'hotel': 'hoteru',
+    'here': 'koko',
+    'nurse': 'kangoshi',
+    'six': 'roku',
+    'wallet': 'saifu',
+    'tv': 'terebi',
+    'news': 'nyuusu',
+    'map': 'chizu',
+    'curry': 'karee',
+    'no': 'iie',
+    'person': 'hito',
+    'where': 'doko',
+    'airport': 'kuukou',
+    'white': 'shiroi',
+    'tempura': 'tenpura',
+    'far': 'tooi',
+    'mom': 'haha',
+    'soccer': 'sakkaa',
+    'sports': 'supootsu',
+    'clean': 'kirei',
+    'dad': 'chichi',
+    'twelve': 'juuni',
+    'hideous': 'dasai',
+    'i': 'watashi',
+    '': 'watashi',
+    'engineer': 'enjinia',
+    'bread': 'pan',
+    'eleven': 'juuichi',
+    'water': 'mizu',
+    'thousand': 'sen',
+    'howmuch': 'ikura',
+    'famous': 'yuumei',
+    'jazz': 'jazu',
+    'often': 'yoku',
+    'very': 'totemo',
+    'plays': 'shimasu',
+    'hundred': 'hyaku',
+    'tennis': 'tenisu',
+    'yen': 'en',
+    'big': 'ooki',
+    'quiet': 'shizuka',
+    'saturday': 'doyoubi',
+    'eats': 'tabemasu',
+    'coffee': 'koohii',
+    'rock': 'rokku',
+    'weekend': 'shuumatsu',
+    't-shirt': 'tiishatsu',
+    'ramen': 'raamen',
+    'skirt': 'sukaato',
+    'smart': 'atamagaii',
+    'movies': 'eiga',
+    'red': 'akai',
+    'coat': 'kooto',
+    'myson': 'musuko',
+    'old': 'furui',
+    'books': 'hon',
+    'manga': 'manga',
+    'anime': 'anime',
+    'yoga': 'yoga',
+    'lunch': 'hirugohan',
+    'drama': 'dorama',
+    'soba': 'soba',
+    'transfer': 'norikae',
+    'music': 'ongaku',
+    'family': 'kazoku',
+    'mywife': 'tsuma',
+    'dress': 'doresu',
+    'five': 'go',
+    'there': 'soko',
+    'store': 'mise',
+    'exit': 'deguchi',
+    'taxi': 'takushii',
+    'dinner': 'bangohan',
+    'new': 'atarashii',
+    'restroom': 'otearai',
+    'close': 'chikai',
+    'sunday': 'nichiyoubi',
+    'juice': 'juusu',
+    'j-pop': 'poppu',
+    'phone': 'denwa',
+    'elevator': 'ereebeeta',
+    'udon': 'udon',
 }
 
 # Speciify cooordinates of each box to click
+# click_A = [
+#     {'x': 318, 'y': 383}, # 1
+#     {'x': 318, 'y': 473}, # 2
+#     {'x': 318, 'y': 563}, # 3
+#     {'x': 318, 'y': 653}, # 4
+#     {'x': 318, 'y': 742}, # 5
+# ]
+# click_B = [
+#     {'x': 534, 'y': 383}, # 1
+#     {'x': 534, 'y': 473}, # 2
+#     {'x': 534, 'y': 563}, # 3
+#     {'x': 534, 'y': 653}, # 4
+#     {'x': 534, 'y': 742}, # 5
+# ]
+
+# # Specify the coordinates of the rectangle (left, top, right, bottom)
+# A = [
+#     [228, 357, 407, 412], # 1
+#     [228, 445, 407, 502], # 2
+#     [228, 537, 407, 592], # 3
+#     [228, 627, 407, 687], # 4
+#     [228, 718, 407, 774], # 5
+# ]
+# B = [
+#     [447, 357, 629, 385], # 1
+#     [447, 445, 629, 473], # 2
+#     [447, 537, 629, 563], # 3
+#     [447, 627, 629, 655], # 4
+#     [447, 718, 629, 745], # 5
+# ]
+
+
+# Speciify cooordinates of each box to click
 click_A = [
-    {'x': 366, 'y': 270}, # 1
-    {'x': 366, 'y': 390}, # 2
-    {'x': 366, 'y': 510}, # 3
-    {'x': 366, 'y': 630}, # 4
-    {'x': 366, 'y': 750}, # 5
+    {'x': 1200, 'y': 540}, # 1
+    {'x': 1200, 'y': 640}, # 2
+    {'x': 1200, 'y': 730}, # 3
+    {'x': 1200, 'y': 820}, # 4
+    {'x': 1200, 'y': 910}, # 5
 ]
 click_B = [
-    {'x': 593, 'y': 270}, # 1
-    {'x': 593, 'y': 390}, # 2
-    {'x': 593, 'y': 510}, # 3
-    {'x': 593, 'y': 630}, # 4
-    {'x': 593, 'y': 750}, # 5
+    {'x': 1400, 'y': 540}, # 1
+    {'x': 1400, 'y': 640}, # 2
+    {'x': 1400, 'y': 730}, # 3
+    {'x': 1400, 'y': 820}, # 4
+    {'x': 1400, 'y': 910}, # 5
 ]
 
 # Specify the coordinates of the rectangle (left, top, right, bottom)
 A = [
-    [281, 234, 451, 303], # 1
-    [281, 355, 451, 426], # 2
-    [281, 477, 451, 548], # 3
-    [281, 599, 451, 670], # 4
-    [281, 721, 451, 792], # 5
+    [1095, 520, 1270, 575], # 1
+    [1095, 610, 1270, 665], # 2
+    [1095, 700, 1270, 755], # 3
+    [1095, 790, 1270, 845], # 4
+    [1095, 880, 1270, 935], # 5
 ]
 B = [
-    [508, 232, 686, 266], # 1
-    [508, 355, 686, 389], # 2
-    [508, 477, 686, 511], # 3
-    [508, 599, 686, 633], # 4
-    [508, 721, 686, 755], # 5
+    [1310, 520, 1490, 545], # 1
+    [1310, 610, 1490, 640], # 2
+    [1310, 700, 1490, 730], # 3
+    [1310, 790, 1490, 820], # 4
+    [1310, 880, 1490, 910], # 5
 ]
-
 from difflib import SequenceMatcher
 
 def find_similar_values(dictionary, target_value, threshold=0.9):
@@ -113,6 +255,7 @@ def extract_data_per_row(row_idx):
     right_row_filename = "{}.jpg".format(os.getpid())
     cv2.imwrite(right_row_filename, right_row_image_gray)
     right_row_text = pytesseract.image_to_string(Image.open(right_row_filename), lang='eng')
+    # print(right_row_text)
     os.remove(right_row_filename)
 
     # show the output images
@@ -123,7 +266,7 @@ def extract_data_per_row(row_idx):
     left_row[row_idx] = left_row_text.strip().replace('\n', '').replace(' ', '').lower()
     right_row[row_idx] = right_row_text.strip().replace('\n', '').replace(' ', '').lower()
 
-    print(f"Row {row_idx}: {left_row[row_idx]}, {right_row[row_idx]}")
+    # print(f"Row {row_idx}: {left_row[row_idx]}, {right_row[row_idx]}")
 
     return left_row[row_idx], right_row[row_idx]
 
@@ -134,34 +277,57 @@ def extract_data_per_row(row_idx):
 
 if __name__ == '__main__':
 
-    with ProcessPoolExecutor() as executor:
-        results = executor.map(extract_data_per_row, range(5))
+    not_found = []
+    while True:
+        with ProcessPoolExecutor() as executor:
+            results = executor.map(extract_data_per_row, range(5))
 
-    for row_idx, result in enumerate(results):
-        left_row[row_idx], right_row[row_idx] = result
+        for row_idx, result in enumerate(results):
+            left_row[row_idx], right_row[row_idx] = result
 
-    print(left_row)
-    print(right_row)
+        # print(left_row)
+        # print(right_row)
 
-    # find the matching words and click the corresponding left and then right box
-    for row_idx in range(5):
-        if left_row[row_idx] in eng_to_jpn:
-            # find index of the matching word in right_row 
-            try:
-                right_row_match = find_best_match(right_row, eng_to_jpn[left_row[row_idx]], 0.5)
-                if right_row_match:
-                    match_idx = right_row_match[0]
+        # break loop on pressing 'x'
+        if keyboard.is_pressed('x'):
+            break
 
-                    # click the corresponding left and right boxes
-                    pyautogui.click(click_A[row_idx]['x'], click_A[row_idx]['y'])
-                    pyautogui.click(click_B[match_idx]['x'], click_B[match_idx]['y'])
+        # find the matching words and click the corresponding left and then right box
+        for row_idx in range(5):
+            if left_row[row_idx] in eng_to_jpn:
+                # find index of the matching word in right_row 
+                try:
+                    right_row_match = find_best_match(right_row, eng_to_jpn[left_row[row_idx]], 0.5)
+                    if right_row_match:
+                        match_idx = right_row_match[0]
 
-                    print(f"Row {row_idx}: {left_row[row_idx]} is matched with {right_row[match_idx]}")
-                                    
-                    # set right_row[match_idx] to '' to avoid matching again
-                    right_row[match_idx] = ''
-            
-            except ValueError:
-                pass
+                        # click the corresponding left and right boxes
+                        pyautogui.click(click_A[row_idx]['x'], click_A[row_idx]['y'], button='left', interval=0.8)
+                        print(f'Clicked on A{row_idx+1}')
 
+                        time.sleep(0.3)
 
+                        pyautogui.click(click_B[match_idx]['x'], click_B[match_idx]['y'], button='left', interval=0.8)
+                        print(f'Clicked on B{match_idx+1}\n')
+
+                        time.sleep(0.3)
+
+                        # print(f"Row {row_idx}: {left_row[row_idx]} is matched with {right_row[match_idx]}")
+                                        
+                        # set right_row[match_idx] to '' to avoid matching again
+                        # right_row[match_idx] = ''
+                    else:
+                        pass
+                        # print(f"Row {row_idx}: {left_row[row_idx]} is not found, available matches: {right_row}")
+                
+                except ValueError:
+                    pass
+            else:
+                if left_row[row_idx] not in not_found:
+                    not_found.append(left_row[row_idx])
+                    # print(f"Row {row_idx}: {left_row[row_idx]} is not matched, available matches: {right_row}")
+
+            # next_row_index = (row_idx + 1) % 5
+            # pyautogui.click(click_A[next_row_index]['x'], click_A[next_row_index]['y'])
+            # print(f'\nClicked on A{next_row_index+1}\n')
+        print('--------------------------------------------')

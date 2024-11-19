@@ -6,7 +6,7 @@ import ctypes
 import keyboard
 from PIL import Image
 from PIL import ImageGrab
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import threading
 
 user32 = ctypes.windll.user32
@@ -17,7 +17,11 @@ MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
 
 def set_timeout(func, delay_seconds, *args, **kwargs):
-    timer = threading.Timer(delay_seconds, func, args=args, kwargs=kwargs)
+    def wrapper():
+        with ThreadPoolExecutor() as executor:
+            executor.submit(func, *args, **kwargs)
+
+    timer = threading.Timer(delay_seconds, wrapper)
     timer.daemon = True  # Thread will exit when main program exits
     timer.start()
     return timer
@@ -161,6 +165,8 @@ eng_to_jpn = {
     'video': 'douga',
     'outlet': 'konsento',
     'judo': 'juudou',
+    'nice': 'yasashii',
+    'airporl': 'kuukou',
 }
 
 
@@ -267,7 +273,7 @@ def extract_left_row_box(row_idx):
     if left_row[row_idx] == '' or left_row[row_idx] == 'matched':
         left_row[row_idx] = left_row_text.strip().replace('\n', '').replace(' ', '').lower()
     
-    print(f"Extracted Left Row Box {row_idx+1}: {left_row[row_idx]}")
+    # print(f"Extracted Left Row Box {row_idx+1}: {left_row[row_idx]}")
     return left_row[row_idx]
 
 
@@ -304,7 +310,7 @@ def extract_right_row_box(row_idx):
     if right_row[row_idx] == '' or right_row[row_idx] == 'matched':
         right_row[row_idx] = right_row_text.strip().replace('\n', '').replace(' ', '').lower()
     
-    print(f"Extracted Right Row Box {row_idx+1}: {right_row[row_idx]}")
+    # print(f"Extracted Right Row Box {row_idx+1}: {right_row[row_idx]}")
     return right_row[row_idx]
 
 
@@ -314,77 +320,83 @@ def extract_data_per_row(row_idx):
 
     return left_row[row_idx], right_row[row_idx]
 
+
+not_found = [] 
+
+def click_on_matches():
+    last_clicked_x = -1
+    last_clicked_y = -1
+
+    # print('Left Row: ', left_row)
+    # print('Right Row: ', right_row)
+
+    # find the matching words and click the corresponding left and then right box
+    for row_idx in range(5):
+        if left_row[row_idx] in eng_to_jpn and left_row[row_idx] != 'matched':
+            # find index of the matching word in right_row 
+            try:
+                right_row_match = find_best_match(right_row, eng_to_jpn[left_row[row_idx]], 0.8)
+                if right_row_match:
+                    match_idx = right_row_match[0]
+
+                    if previous_matches[row_idx] == f'{left_row[row_idx]}-{right_row[match_idx]}':
+                        continue
+
+                    # click the corresponding left and right boxes
+                    click_at(click_A[row_idx]['x'], click_A[row_idx]['y'])
+                    # print(f'Clicked on A{row_idx+1}')
+
+                    click_at(click_B[match_idx]['x'], click_B[match_idx]['y'])
+                    # print(f'Clicked on B{match_idx+1}\n')
+
+                    last_clicked_x = click_B[match_idx]['x']
+                    last_clicked_y = click_B[match_idx]['y']
+
+                    print(f"Row {row_idx}: {left_row[row_idx]} is matched with {right_row[match_idx]}")
+                                    
+                    previous_matches[row_idx] = f'{left_row[row_idx]}-{right_row[match_idx]}'
+
+                    # set right_row[match_idx] to '' to avoid matching again
+                    right_row[match_idx] = 'matched'
+                    # also clear the left_row[row_idx] to avoid matching again
+                    left_row[row_idx] = 'matched'
+
+                    # start extracting data for matched box in parallel after 3 seconds
+                    # set_timeout(extract_left_row_box, 2, row_idx)
+                    # set_timeout(extract_right_row_box, 2, match_idx)
+                else:
+                    pass
+                    # print(f"Row {row_idx}: {left_row[row_idx]} is not found, available matches: {right_row}")
+            
+            except ValueError:
+                pass
+        else:
+            if left_row[row_idx] not in not_found:
+                not_found.append(left_row[row_idx])
+                print(f"Row {row_idx}: {left_row[row_idx]} is not matched, available matches: {right_row}")
+
+    # reset click by clicking again on the last clicked box
+    if last_clicked_x != -1 and last_clicked_y != -1:
+        click_at(last_clicked_x, last_clicked_y)
+
+    # time.sleep(1)
+    # print(f'--------------------------------------------')
+
+
 if __name__ == '__main__':
-    with ProcessPoolExecutor() as executor:
-        results = executor.map(extract_data_per_row, range(5))
 
-    for row_idx, result in enumerate(results):
-        left_row[row_idx], right_row[row_idx] = result
-
-    print(left_row)
-    print(right_row)
-
-    not_found = []
     while True:
-        # break loop on pressing 'x'
+        with ProcessPoolExecutor() as executor:
+            results = executor.map(extract_data_per_row, range(5))
+            click_on_matches()
+
+        for row_idx, result in enumerate(results):
+            left_row[row_idx], right_row[row_idx] = result
+
         if keyboard.is_pressed('x'):
-            print('Not Found: ', not_found)
+            print('Exiting...')
+            print("Not Found: ", not_found)
             break
 
-        last_clicked_x = -1
-        last_clicked_y = -1
-
-        print('Left Row: ', left_row)
-        print('Right Row: ', right_row)
-
-        # find the matching words and click the corresponding left and then right box
-        for row_idx in range(5):
-            if left_row[row_idx] in eng_to_jpn and left_row[row_idx] != 'matched':
-                # find index of the matching word in right_row 
-                try:
-                    right_row_match = find_best_match(right_row, eng_to_jpn[left_row[row_idx]], 0.8)
-                    if right_row_match:
-                        match_idx = right_row_match[0]
-
-                        if previous_matches[row_idx] == f'{left_row[row_idx]}-{right_row[match_idx]}':
-                            continue
-
-                        # click the corresponding left and right boxes
-                        click_at(click_A[row_idx]['x'], click_A[row_idx]['y'])
-                        # print(f'Clicked on A{row_idx+1}')
-
-                        click_at(click_B[match_idx]['x'], click_B[match_idx]['y'])
-                        # print(f'Clicked on B{match_idx+1}\n')
-
-                        last_clicked_x = click_B[match_idx]['x']
-                        last_clicked_y = click_B[match_idx]['y']
-
-                        print(f"Row {row_idx}: {left_row[row_idx]} is matched with {right_row[match_idx]}")
-                                        
-                        previous_matches[row_idx] = f'{left_row[row_idx]}-{right_row[match_idx]}'
-
-                        # set right_row[match_idx] to '' to avoid matching again
-                        right_row[match_idx] = 'matched'
-                        # also clear the left_row[row_idx] to avoid matching again
-                        left_row[row_idx] = 'matched'
-
-                        # start extracting data for matched box in parallel after 3 seconds
-                        set_timeout(extract_left_row_box, 1, row_idx)
-                        set_timeout(extract_right_row_box, 1, match_idx)
-                    else:
-                        pass
-                        # print(f"Row {row_idx}: {left_row[row_idx]} is not found, available matches: {right_row}")
-                
-                except ValueError:
-                    pass
-            else:
-                if left_row[row_idx] not in not_found:
-                    not_found.append(left_row[row_idx])
-                    print(f"Row {row_idx}: {left_row[row_idx]} is not matched, available matches: {right_row}")
-
-        # reset click by clicking again on the last clicked box
-        if last_clicked_x != -1 and last_clicked_y != -1:
-            click_at(last_clicked_x, last_clicked_y)
-
-        # time.sleep(1)
-        # print(f'--------------------------------------------')
+    print(left_row)
+    print(right_row)       
